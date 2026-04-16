@@ -473,5 +473,72 @@ DEFAULT_AI_MODEL = "siliconflow"
 
 ---
 
-*文档生成时间: 2026-04-16*
-*项目版本: v1.0*
+*文档生成时间: 2026-04-17*
+*项目版本: v1.0.0*
+
+---
+
+## 12. 会话记录 2026-04-17
+
+### 完成的任务
+
+#### 12.1 调试定时任务上传失败
+- **问题**: full_workflow 任务报错 "生成成功但上传失败: 全部失败: 1 个错误"
+- **根因**: scheduler.py 创建任务时上传封面图只设置标志位，未保存文件路径
+- **修复**: ui/pages/scheduler.py:323-332 保存封面图到 data/covers/ 并记录路径
+- **日志**: app.py 添加文件日志输出到 data/app.log
+
+#### 12.2 Git 初始化与 GitHub 提交
+- 初始化 git 仓库，分支命名为 main
+- 添加远程仓库 https://github.com/difeizheng/wechat_auto_writer2
+- 创建 v1.0.0 tag
+- 提交内容：47 文件，18106 行代码
+- 修复：移除 .env 从 git tracking，确保敏感信息安全
+
+#### 12.3 Streamlit Secrets 支持
+- config/settings.py 新增 `_get_streamlit_secret()` 函数
+- 配置优先级：st.secrets > 环境变量 > 默认值
+- 创建 `.streamlit/secrets.toml.example` 配置模板
+- 创建 `.streamlit/config.toml` 主题配置
+- 更新 README.md 添加 Streamlit Cloud 部署指南
+
+### 提交记录
+```
+2d069e2 docs: update MEMORY.md with Streamlit secrets support
+cab49fd feat: add Streamlit secrets support for cloud deployment
+0dc5e04 fix: ensure .env is properly ignored
+15fc94e feat: WeChat Auto Writer v1.0.0 initial release
+```
+
+### 重要提醒
+- `.env` 文件不提交 Git（包含 API keys）
+- Streamlit Cloud 使用 Secrets 配置
+- 本地开发可使用 `.env` 或 `.streamlit/secrets.toml`
+
+---
+
+## 13. 使用指南速查
+
+### 本地运行
+```bash
+streamlit run app.py
+```
+
+### 查看日志
+```bash
+Get-Content data/app.log -Tail 50
+```
+
+### 定时任务后台服务
+```bash
+python scripts/run_scheduler.py
+```
+
+### GitHub 仓库
+https://github.com/difeizheng/wechat_auto_writer2
+
+### Streamlit Cloud 部署
+1. Fork 仓库
+2. Streamlit Cloud → New app
+3. Settings → Secrets 配置
+4. Deploy
