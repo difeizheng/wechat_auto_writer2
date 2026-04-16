@@ -1,0 +1,15 @@
+# Streamlit
+streamlit>=1.28.0
+
+# HTTP请求
+requests>=2.31.0
+
+# AI模型
+openai>=1.0.0
+anthropic>=0.18.0
+
+# 环境变量
+python-dotenv>=1.0.0
+
+# 图像处理
+pillow>=10.0.0
