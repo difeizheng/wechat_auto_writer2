@@ -419,6 +419,7 @@ config/settings.py          # 钉钉配置项
 
 ## 10. 环境配置清单
 
+### 本地开发 (.env)
 ```env
 # 必需配置
 OPENAI_API_KEY=sk-xxx
@@ -435,6 +436,40 @@ OLLAMA_BASE_URL=http://localhost:11434
 DINGTALK_WEBHOOK=https://oapi.dingtalk.com/robot/send?access_token=xxx
 DINGTALK_SECRET=SECxxx
 ```
+
+### Streamlit Cloud (secrets.toml)
+在 Dashboard → Settings → Secrets 中配置：
+
+```toml
+OPENAI_API_KEY = "sk-xxx"
+SILICONFLOW_API_KEY = "xxx"
+WECHAT_APP_ID = "wxxxx"
+WECHAT_APP_SECRET = "xxx"
+DEFAULT_AI_MODEL = "siliconflow"
+```
+
+### 配置优先级
+1. Streamlit secrets (st.secrets) - 最高优先级
+2. 环境变量 (.env)
+3. 默认值
+
+---
+
+## 11. Streamlit Secrets 支持
+
+### 功能实现
+`config/settings.py` 新增 `_get_streamlit_secret()` 函数，支持从 Streamlit Cloud secrets 读取配置。
+
+### 配置文件
+- `.streamlit/secrets.toml.example` - 配置模板
+- `.streamlit/config.toml` - Streamlit 主题配置
+- `.streamlit/secrets.toml` - 本地 secrets（不提交 Git）
+
+### 部署方法
+1. Fork 仓库到 GitHub
+2. Streamlit Cloud 创建新应用
+3. Settings → Secrets 粘贴配置
+4. Deploy
 
 ---
 
