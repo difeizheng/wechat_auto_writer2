@@ -138,17 +138,35 @@ wechat_auto_writer2/
 
 ### Streamlit Cloud（推荐）
 
-1. 上传代码到 GitHub
+1. Fork 或 Clone 本仓库到 GitHub
 2. 登录 [Streamlit Cloud](https://streamlit.io/cloud)
-3. 创建新应用，连接 GitHub 仓库
-4. 配置 Secrets：
+3. 点击「New app」→ 选择 GitHub 仓库
+4. 配置 Secrets（在 Settings → Secrets 中粘贴）：
 
 ```toml
-# .streamlit/secrets.toml
+# 必需：至少配置一种AI模型
 OPENAI_API_KEY = "sk-xxx"
-WECHAT_APP_ID = "xxx"
+# 或使用 SiliconFlow（推荐国内用户）
+SILICONFLOW_API_KEY = "xxx"
+SILICONFLOW_MODEL = "Qwen/Qwen2.5-7B-Instruct"
+
+# 微信公众号配置
+WECHAT_APP_ID = "wxxxx"
 WECHAT_APP_SECRET = "xxx"
+
+# 默认模型
+DEFAULT_AI_MODEL = "siliconflow"
+
+# 可选：钉钉通知
+# DINGTALK_WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=xxx"
 ```
+
+5. 点击「Deploy」
+
+**配置说明**：
+- Secrets 优先级高于 `.env` 文件
+- 参考 `.streamlit/secrets.toml.example` 查看完整配置项
+- 不要在 Secrets 中提交 `.env` 文件内容，只配置需要的项
 
 ### 本地运行
 

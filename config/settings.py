@@ -1,11 +1,33 @@
 """
 配置管理模块
-从 .env 文件加载配置，提供统一的配置访问接口
+从 .env 文件或 Streamlit secrets 加载配置，提供统一的配置访问接口
 """
 import os
+import logging
 from typing import Optional, List
 from dotenv import load_dotenv
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+def _get_streamlit_secret(key: str, default: str = "") -> str:
+    """从 Streamlit secrets 获取配置值
+    
+    Args:
+        key: 配置键名
+        default: 默认值
+        
+    Returns:
+        str: 配置值
+    """
+    try:
+        import streamlit as st
+        if hasattr(st, 'secrets') and key in st.secrets:
+            return str(st.secrets[key])
+    except Exception:
+        pass
+    return default
 
 
 class Settings:
@@ -89,44 +111,47 @@ class Settings:
             load_dotenv(env_path, override=True)
     
     def _load_from_env(self):
-        """从环境变量加载配置"""
+        """从环境变量或 Streamlit secrets 加载配置
+        
+        优先级：Streamlit secrets > 环境变量 > 默认值
+        """
         # AI模型配置
-        self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-        self.OPENAI_BASE_URL = os.getenv(
+        self.OPENAI_API_KEY = _get_streamlit_secret("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY", "")
+        self.OPENAI_BASE_URL = _get_streamlit_secret("OPENAI_BASE_URL") or os.getenv(
             "OPENAI_BASE_URL", 
             "https://api.openai.com/v1"
         )
-        self.OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self.OPENAI_MODEL = _get_streamlit_secret("OPENAI_MODEL") or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         
-        self.CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
-        self.CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-haiku-20240307")
+        self.CLAUDE_API_KEY = _get_streamlit_secret("CLAUDE_API_KEY") or os.getenv("CLAUDE_API_KEY", "")
+        self.CLAUDE_MODEL = _get_streamlit_secret("CLAUDE_MODEL") or os.getenv("CLAUDE_MODEL", "claude-3-haiku-20240307")
         
-        self.OLLAMA_BASE_URL = os.getenv(
+        self.OLLAMA_BASE_URL = _get_streamlit_secret("OLLAMA_BASE_URL") or os.getenv(
             "OLLAMA_BASE_URL", 
             "http://localhost:11434"
         )
-        self.OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+        self.OLLAMA_MODEL = _get_streamlit_secret("OLLAMA_MODEL") or os.getenv("OLLAMA_MODEL", "llama3")
         
         # SiliconFlow配置
-        self.SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY", "")
-        self.SILICONFLOW_BASE_URL = os.getenv(
+        self.SILICONFLOW_API_KEY = _get_streamlit_secret("SILICONFLOW_API_KEY") or os.getenv("SILICONFLOW_API_KEY", "")
+        self.SILICONFLOW_BASE_URL = _get_streamlit_secret("SILICONFLOW_BASE_URL") or os.getenv(
             "SILICONFLOW_BASE_URL",
             "https://api.siliconflow.cn/v1"
         )
-        self.SILICONFLOW_MODEL = os.getenv(
+        self.SILICONFLOW_MODEL = _get_streamlit_secret("SILICONFLOW_MODEL") or os.getenv(
             "SILICONFLOW_MODEL",
             "Qwen/Qwen2.5-7B-Instruct"
         )
         
-        self.DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "openai").lower()
+        self.DEFAULT_AI_MODEL = (_get_streamlit_secret("DEFAULT_AI_MODEL") or os.getenv("DEFAULT_AI_MODEL", "openai")).lower()
         
         # 微信公众号配置
-        self.WECHAT_APP_ID = os.getenv("WECHAT_APP_ID", "")
-        self.WECHAT_APP_SECRET = os.getenv("WECHAT_APP_SECRET", "")
+        self.WECHAT_APP_ID = _get_streamlit_secret("WECHAT_APP_ID") or os.getenv("WECHAT_APP_ID", "")
+        self.WECHAT_APP_SECRET = _get_streamlit_secret("WECHAT_APP_SECRET") or os.getenv("WECHAT_APP_SECRET", "")
         
         # DingTalk 通知配置
-        self.DINGTALK_WEBHOOK = os.getenv("DINGTALK_WEBHOOK", "")
-        self.DINGTALK_SECRET = os.getenv("DINGTALK_SECRET", "")
+        self.DINGTALK_WEBHOOK = _get_streamlit_secret("DINGTALK_WEBHOOK") or os.getenv("DINGTALK_WEBHOOK", "")
+        self.DINGTALK_SECRET = _get_streamlit_secret("DINGTALK_SECRET") or os.getenv("DINGTALK_SECRET", "")
         
         # 应用配置
         self.DATABASE_PATH = os.getenv(
