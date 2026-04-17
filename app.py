@@ -97,6 +97,7 @@ def init_app():
     - 初始化数据库
     - 初始化session state（不覆盖已有值）
     - 确保必要目录存在
+    - 启动定时任务调度器
     """
     # 初始化数据库
     try:
@@ -112,6 +113,17 @@ def init_app():
     
     if "edited_article" not in st.session_state:
         st.session_state.edited_article = None
+    
+    # 启动定时任务调度器（只启动一次）
+    if "scheduler_started" not in st.session_state:
+        try:
+            from core.scheduler import get_scheduler
+            scheduler = get_scheduler()
+            scheduler.start()
+            st.session_state.scheduler_started = True
+            logger.info("定时任务调度器已启动")
+        except Exception as e:
+            logger.warning(f"启动调度器失败: {e}")
     
     # 确保必要目录存在
     Path("data").mkdir(exist_ok=True)

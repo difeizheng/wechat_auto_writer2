@@ -712,13 +712,77 @@ class Scheduler:
         """检查并执行到期任务"""
         now = datetime.now()
         
-        # 获取所有活跃的任务
         try:
-            # 需要在数据库中添加查询活跃任务的方法
-            # 这里暂时模拟
-            pass
+            pending_tasks = self.db_manager.get_pending_tasks_to_run()
+            
+            if not pending_tasks:
+                return
+            
+            logger.info(f"发现 {len(pending_tasks)} 个待执行任务")
+            
+            for task_data in pending_tasks:
+                self._execute_task_from_data(task_data)
+                
         except Exception as e:
-            logger.error(f"获取任务列表失败: {e}")
+            logger.error(f"检查任务失败: {e}")
+    
+    def _execute_task_from_data(self, task_data: dict):
+        """从任务数据执行任务"""
+        task_id = task_data.get("id")
+        task_name = task_data.get("name", "未命名")
+        
+        logger.info(f"开始执行任务: {task_name} (ID: {task_id})")
+        
+        self.db_manager.update_scheduled_task(task_id, {"status": "running"})
+        
+        try:
+            task = ScheduledTask.from_dict(task_data)
+            result = self.executor.execute_task(task)
+            
+            update_data = {
+                "status": result.get("status", "completed"),
+                "last_run_time": datetime.now().isoformat(),
+                "last_run_result": result.get("message", "")
+            }
+            
+            schedule_time = task_data.get("schedule_time", "")
+            if schedule_time.startswith("every_"):
+                try:
+                    unit = schedule_time[-1]
+                    value = int(schedule_time[6:-1])
+                    if unit == "m":
+                        update_data["next_run_time"] = (
+                            datetime.now() + timedelta(minutes=value)
+                        ).isoformat()
+                    elif unit == "h":
+                        update_data["next_run_time"] = (
+                            datetime.now() + timedelta(hours=value)
+                        ).isoformat()
+                except:
+                    pass
+            elif schedule_time.count(":") == 1 and "-" not in schedule_time:
+                try:
+                    hour, minute = schedule_time.split(":")
+                    next_run = datetime.now().replace(
+                        hour=int(hour), minute=int(minute), second=0
+                    ) + timedelta(days=1)
+                    update_data["next_run_time"] = next_run.isoformat()
+                except:
+                    pass
+            else:
+                update_data["is_active"] = 0
+                update_data["status"] = "completed"
+            
+            self.db_manager.update_scheduled_task(task_id, update_data)
+            logger.info(f"任务执行完成: {task_name} - {result.get('status')}")
+            
+        except Exception as e:
+            logger.error(f"任务执行失败: {task_name} - {e}")
+            self.db_manager.update_scheduled_task(task_id, {
+                "status": "failed",
+                "last_run_time": datetime.now().isoformat(),
+                "last_run_result": f"执行异常: {str(e)}"
+            })
     
     def execute_task_now(self, task_id: int) -> Dict:
         """立即执行指定任务
@@ -762,14 +826,27 @@ class Scheduler:
     
     def _get_task_from_db(self, task_id: int) -> Optional[ScheduledTask]:
         """从数据库获取任务"""
-        # 需要在数据库管理器中实现
-        # 这里暂时返回None
-        return None
+        try:
+            task_data = self.db_manager.get_scheduled_task(task_id)
+            if task_data:
+                return ScheduledTask.from_dict(task_data)
+            return None
+        except Exception as e:
+            logger.error(f"获取任务失败: {e}")
+            return None
     
     def _update_task_in_db(self, task: ScheduledTask):
         """更新任务到数据库"""
-        # 需要在数据库管理器中实现
-        pass
+        try:
+            update_data = {
+                "status": task.status,
+                "last_run_time": task.last_run_time.isoformat() if task.last_run_time else None,
+                "last_run_result": task.last_run_result,
+                "next_run_time": task.next_run_time.isoformat() if task.next_run_time else None
+            }
+            self.db_manager.update_scheduled_task(task.id, update_data)
+        except Exception as e:
+            logger.error(f"更新任务失败: {e}")
     
     def create_task(
         self,
@@ -816,6 +893,8 @@ class Scheduler:
         支持格式：
         - "HH:MM" - 每天指定时间
         - "HH:MM,HH:MM" - 每天多个时间
+        - "every_Xm" - 每X分钟执行
+        - "every_Xh" - 每X小时执行
         - "cron表达式" - 使用cron格式
         
         Args:
@@ -825,8 +904,18 @@ class Scheduler:
             datetime: 下次执行时间
         """
         try:
+            # 循环执行格式: every_Xm 或 every_Xh
+            if schedule_time.startswith("every_"):
+                unit = schedule_time[-1]
+                value = int(schedule_time[6:-1])
+                
+                if unit == "m":
+                    return datetime.now() + timedelta(minutes=value)
+                elif unit == "h":
+                    return datetime.now() + timedelta(hours=value)
+            
             # 简单时间格式 HH:MM
-            if ":" in schedule_time and "," not in schedule_time:
+            elif ":" in schedule_time and "," not in schedule_time:
                 hour, minute = schedule_time.split(":")
                 now = datetime.now()
                 next_run = now.replace(

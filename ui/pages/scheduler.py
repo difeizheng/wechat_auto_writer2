@@ -255,9 +255,17 @@ def show_create_task(db, settings):
             st.warning("时间格式错误，请使用 HH:MM 格式")
     
     elif schedule_type == "循环执行":
-        interval_hours = st.number_input("间隔小时", min_value=1, value=6)
-        schedule_time = f"every_{interval_hours}h"
-        next_run_time = datetime.now() + timedelta(hours=interval_hours)
+        interval_unit = st.selectbox("间隔单位", ["分钟", "小时"], index=0)
+        
+        if interval_unit == "分钟":
+            interval_minutes = st.number_input("间隔分钟", min_value=1, max_value=59, value=30)
+            schedule_time = f"every_{interval_minutes}m"
+            next_run_time = datetime.now() + timedelta(minutes=interval_minutes)
+        else:
+            interval_hours = st.number_input("间隔小时", min_value=1, value=6)
+            schedule_time = f"every_{interval_hours}h"
+            next_run_time = datetime.now() + timedelta(hours=interval_hours)
+        
         st.caption(f"下次执行时间: {next_run_time.strftime('%Y-%m-%d %H:%M')}")
     
     # 任务配置

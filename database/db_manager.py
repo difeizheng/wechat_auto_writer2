@@ -1215,7 +1215,8 @@ class DatabaseManager:
                     SELECT * FROM scheduled_tasks 
                     WHERE is_active = 1 
                     AND status IN ('pending', 'completed')
-                    AND (next_run_time IS NULL OR next_run_time <= ?)
+                    AND next_run_time IS NOT NULL
+                    AND next_run_time <= ?
                     ORDER BY next_run_time ASC
                 """, (now,))
                 

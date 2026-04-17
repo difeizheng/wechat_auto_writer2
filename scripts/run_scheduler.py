@@ -170,16 +170,21 @@ class SchedulerService:
             # 计算下次执行时间（如果是循环任务）
             schedule_time = task_data.get("schedule_time", "")
             if schedule_time.startswith("every_"):
-                # 解析间隔
                 try:
-                    hours = int(schedule_time.split("_")[1].replace("h", ""))
-                    update_data["next_run_time"] = (
-                        datetime.now() + timedelta(hours=hours)
-                    ).isoformat()
+                    unit = schedule_time[-1]
+                    value = int(schedule_time[6:-1])
+                    
+                    if unit == "m":
+                        update_data["next_run_time"] = (
+                            datetime.now() + timedelta(minutes=value)
+                        ).isoformat()
+                    elif unit == "h":
+                        update_data["next_run_time"] = (
+                            datetime.now() + timedelta(hours=value)
+                        ).isoformat()
                 except:
                     pass
-            elif ":" in schedule_time and "," not in schedule_time:
-                # 每天定时执行，计算明天的时间
+            elif schedule_time.count(":") == 1 and "-" not in schedule_time:
                 try:
                     hour, minute = schedule_time.split(":")
                     next_run = datetime.now().replace(
@@ -188,6 +193,8 @@ class SchedulerService:
                     update_data["next_run_time"] = next_run.isoformat()
                 except:
                     pass
+            else:
+                update_data["is_active"] = 0
             
             self.db.update_scheduled_task(task_id, update_data)
             
