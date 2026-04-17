@@ -16,7 +16,7 @@ import os
 import time
 import signal
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # 添加项目根目录到 Python 路径
@@ -204,21 +204,23 @@ class SchedulerService:
             
             # 计算下次执行时间（如果是循环任务）
             schedule_time = task_data.get("schedule_time", "")
+            logger.info(f"schedule_time: {schedule_time}")
+            
             if schedule_time.startswith("every_"):
                 try:
                     unit = schedule_time[-1]
                     value = int(schedule_time[6:-1])
                     
                     if unit == "m":
-                        update_data["next_run_time"] = (
-                            datetime.now() + timedelta(minutes=value)
-                        ).isoformat()
+                        next_run = datetime.now() + timedelta(minutes=value)
+                        update_data["next_run_time"] = next_run.isoformat()
+                        logger.info(f"设置 next_run_time (分钟): {update_data['next_run_time']}")
                     elif unit == "h":
-                        update_data["next_run_time"] = (
-                            datetime.now() + timedelta(hours=value)
-                        ).isoformat()
-                except:
-                    pass
+                        next_run = datetime.now() + timedelta(hours=value)
+                        update_data["next_run_time"] = next_run.isoformat()
+                        logger.info(f"设置 next_run_time (小时): {update_data['next_run_time']}")
+                except Exception as e:
+                    logger.error(f"解析 schedule_time 失败: {e}")
             elif schedule_time.count(":") == 1 and "-" not in schedule_time:
                 try:
                     hour, minute = schedule_time.split(":")
@@ -231,7 +233,12 @@ class SchedulerService:
             else:
                 update_data["is_active"] = 0
             
+            logger.info(f"更新数据: {update_data}")
             self.db.update_scheduled_task(task_id, update_data)
+            
+            # 验证更新是否成功
+            updated_task = self.db.get_scheduled_task(task_id)
+            logger.info(f"更新后数据库状态: next_run_time={updated_task.get('next_run_time')}, status={updated_task.get('status')}")
             
             logger.info(f"任务执行完成: {task_name} - {result.get('status')}")
             
@@ -249,7 +256,6 @@ class SchedulerService:
 def main():
     """主入口"""
     import argparse
-    from datetime import timedelta
     
     # 检查是否已有调度器在运行
     if is_scheduler_running():
