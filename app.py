@@ -114,14 +114,40 @@ def init_app():
     if "edited_article" not in st.session_state:
         st.session_state.edited_article = None
     
-    # 启动定时任务调度器（只启动一次）
-    if "scheduler_started" not in st.session_state:
+    # 启动定时任务调度器（子进程方式，持久运行）
+    if "scheduler_process" not in st.session_state:
         try:
-            from core.scheduler import get_scheduler
-            scheduler = get_scheduler()
-            scheduler.start()
-            st.session_state.scheduler_started = True
-            logger.info("定时任务调度器已启动")
+            import subprocess
+            import sys
+            
+            pid_file = Path("data/scheduler.pid")
+            scheduler_already_running = False
+            
+            # 检查调度器是否已在运行
+            if pid_file.exists():
+                try:
+                    pid = int(pid_file.read_text().strip())
+                    result = subprocess.run(['tasklist', '/FI', f'PID eq {pid}'], 
+                                            capture_output=True, text=True)
+                    if str(pid) in result.stdout:
+                        logger.info(f"调度器已在运行 (PID: {pid})")
+                        st.session_state.scheduler_process = pid
+                        scheduler_already_running = True
+                except:
+                    pass
+            
+            if not scheduler_already_running:
+                scheduler_script = os.path.join(os.path.dirname(__file__), "scripts", "run_scheduler.py")
+                
+                process = subprocess.Popen(
+                    [sys.executable, scheduler_script],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                )
+                
+                st.session_state.scheduler_process = process.pid
+                logger.info(f"定时任务调度器已启动 (PID: {process.pid})")
         except Exception as e:
             logger.warning(f"启动调度器失败: {e}")
     

@@ -9,6 +9,7 @@
     - 后台运行定时任务调度器
     - 自动检查并执行到期任务
     - 执行完成后发送钉钉通知
+    - PID 文件防止重复启动
 """
 import sys
 import os
@@ -33,6 +34,40 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+PID_FILE = project_root / "data" / "scheduler.pid"
+
+def is_scheduler_running():
+    """检查调度器是否已在运行"""
+    if not PID_FILE.exists():
+        return False
+    
+    try:
+        pid = int(PID_FILE.read_text().strip())
+        if os.name == 'nt':
+            import subprocess
+            result = subprocess.run(['tasklist', '/FI', f'PID eq {pid}'], 
+                                    capture_output=True, text=True)
+            return str(pid) in result.stdout
+        else:
+            import errno
+            try:
+                os.kill(pid, 0)
+                return True
+            except OSError as e:
+                return e.errno == errno.EPERM
+    except:
+        return False
+
+def write_pid_file():
+    """写入 PID 文件"""
+    PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PID_FILE.write_text(str(os.getpid()))
+
+def remove_pid_file():
+    """删除 PID 文件"""
+    if PID_FILE.exists():
+        PID_FILE.unlink()
 
 
 class SchedulerService:
@@ -216,11 +251,20 @@ def main():
     import argparse
     from datetime import timedelta
     
+    # 检查是否已有调度器在运行
+    if is_scheduler_running():
+        print("调度器已在运行中，退出")
+        logger.warning("调度器已在运行中，跳过启动")
+        return
+    
     parser = argparse.ArgumentParser(description="定时任务调度服务")
     parser.add_argument("--interval", type=int, default=60, help="检查间隔（秒）")
     parser.add_argument("--once", action="store_true", help="只执行一次检查")
     
     args = parser.parse_args()
+    
+    # 写入 PID 文件
+    write_pid_file()
     
     # 创建服务
     service = SchedulerService()
@@ -231,13 +275,22 @@ def main():
         logger.info("执行单次任务检查...")
         service._check_tasks()
         logger.info("检查完成")
+        remove_pid_file()
     else:
         # 持续运行
         # 注册信号处理
-        signal.signal(signal.SIGINT, lambda s, f: service.stop())
-        signal.signal(signal.SIGTERM, lambda s, f: service.stop())
+        def signal_handler(signum, frame):
+            service.stop()
+            remove_pid_file()
+            sys.exit(0)
         
-        service.start()
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        
+        try:
+            service.start()
+        finally:
+            remove_pid_file()
 
 
 if __name__ == "__main__":
